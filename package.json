@@ -1,0 +1,27 @@
+{
+  "name": "webhdfs-proxy",
+  "version": "0.1.0",
+  "description": "WebHDFS REST API proxy",
+  "main": "index.js",
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --reporter spec test/"
+  },
+  "keywords": [
+    "webhdfs",
+    "hadoop",
+    "storage",
+    "big data"
+  ],
+  "author": "Harri Siirak <harri.siirak@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "mocha": "^1.18.2",
+    "must": "^0.11.0",
+    "sinon": "^1.9.1",
+    "webhdfs": "^0.1.8"
+  },
+  "dependencies": {
+    "jayschema": "^0.2.6",
+    "pem": "^1.4.0"
+  }
+}
