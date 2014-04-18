@@ -1,0 +1,8 @@
+{
+  "properties": {
+    "permission": {
+      "description": "The permission represented as a octal string.",
+      "type": "string"
+    }
+  }
+}
