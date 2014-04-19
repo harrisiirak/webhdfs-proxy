@@ -36,19 +36,19 @@ describe('WebHDFS Proxy', function () {
 
   it('should make a directory', function (done) {
     proxyClient.mkdir(path, function (err) {
-      console.log(err);
+      demand(err).be.null();
       return done();
     });
   });
 
-  /*
   it('should create and write data to a file', function (done) {
-    hdfs.writeFile(path + '/file-1', 'random data', function (err) {
+    proxyClient.writeFile(path + '/file-1', 'random data', function (err) {
       demand(err).be.null();
       done();
     });
   });
 
+  /*
   it('should append content to an existing file', function (done) {
     hdfs.appendFile(path + '/file-1', 'more random data', function (err) {
       demand(err).be.null();
