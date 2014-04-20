@@ -1,0 +1,33 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "If a file already exists, should it be overwritten?",
+      "type": "string"
+    },
+
+    "overwrite": {
+      "description": "If a file already exists, should it be overwritten?",
+      "type": "boolean"
+    },
+
+    "blocksize": {
+      "description": "The block size of a file.",
+      "type": "integer"
+    },
+
+    "replication": {
+      "description": "The number of replication of a file.",
+      "type": "integer"
+    },
+
+    "permission": {
+      "description": "The permission represented as a octal string.",
+      "type": "string"
+    },
+
+    "buffersize": {
+      "description": "The size of the buffer used in transferring data.",
+      "type": "integer"
+    }
+  }
+}

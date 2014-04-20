@@ -27,7 +27,7 @@ describe('WebHDFS Proxy', function () {
   };
 
   function handler (err, req, res, next) {
-    return next();
+    return next(err);
   }
 
   before(function () {
