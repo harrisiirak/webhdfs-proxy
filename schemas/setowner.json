@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "The authenticated user.",
+      "type": "string"
+    },
+
+    "owner": {
+      "description": "The username who is the owner of a file/directory.",
+      "type": "string"
+    },
+
+    "group": {
+      "description": "The name of a group.",
+      "type": "string"
+    }
+  }
+}

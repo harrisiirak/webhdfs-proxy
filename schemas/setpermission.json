@@ -1,0 +1,13 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "The authenticated user.",
+      "type": "string"
+    },
+
+    "permission": {
+      "description": "The permission represented as a octal string.",
+      "type": "string"
+    }
+  }
+}

@@ -120,6 +120,25 @@ function handler (err, req, res, next) {
       return next();
       break;
 
+    case 'setpermission':
+      if (!storage.hasOwnProperty(req.path)) {
+        return next(new Error('File doesn\'t exist'));
+      }
+
+      storage[req.path].permission = req.params.permission;
+      return next();
+      break;
+
+    case 'setowner':
+      if (!storage.hasOwnProperty(req.path)) {
+        return next(new Error('File doesn\'t exist'));
+      }
+
+      storage[req.path].owner = req.params.owner;
+      storage[req.path].group = req.params.group;
+      return next();
+      break;
+
     default:
       return next();
       break;
@@ -240,21 +259,21 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  /*
   it('should change file permissions', function (done) {
-    hdfs.chmod(path, '0777', function (err) {
+    proxyClient.chmod(path, '0777', function (err) {
       demand(err).be.null();
       done();
     });
   });
 
   it('should change file owner', function (done) {
-    hdfs.chown(path, process.env.USER, 'supergroup', function (err) {
+    proxyClient.chown(path, process.env.USER, 'supergroup', function (err) {
       demand(err).be.null();
       done();
     });
   });
 
+  /*
   it('should rename file', function (done) {
     hdfs.rename(path+ '/file-2', path + '/bigfile', function (err) {
       demand(err).be.null();
