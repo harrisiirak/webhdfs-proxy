@@ -1,0 +1,8 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "The authenticated user.",
+      "type": "string"
+    }
+  }
+}

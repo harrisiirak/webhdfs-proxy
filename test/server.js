@@ -4,6 +4,7 @@ var WebHDFSProxy = require('../');
 var WebHDFS = require('webhdfs');
 
 var fs = require('fs');
+var path = require('path');
 var must = require('must');
 var demand = must;
 var sinon = require('sinon');
@@ -20,7 +21,18 @@ function handler (err, req, res, next) {
 
   switch (req.params.op) {
     case 'mkdirs':
-      storage[req.path] = { type: 'directory' };
+      storage[req.path] = {
+        accessTime: (new Date()).getTime(),
+        blockSize: 0,
+        group: 'supergroup',
+        length: 24930,
+        modificationTime: (new Date()).getTime(),
+        owner: 'webuser',
+        pathSuffix: '',
+        permission: '644',
+        replication: 1,
+        type: 'DIRECTORY'
+      };
       return next();
       break;
 
@@ -39,7 +51,19 @@ function handler (err, req, res, next) {
       }
 
       if (!exists) {
-        storage[req.path] = { type: 'file', data: '' };
+        storage[req.path] = {
+          accessTime: (new Date()).getTime(),
+          blockSize: 0,
+          group: 'supergroup',
+          length: 0,
+          modificationTime: (new Date()).getTime(),
+          owner: 'webuser',
+          pathSuffix: '',
+          permission: '644',
+          replication: 1,
+          type: 'FILE',
+          data: ''
+        };
       }
 
       req.on('data', function onData (data) {
@@ -51,6 +75,8 @@ function handler (err, req, res, next) {
       });
 
       req.on('end', function onFinish () {
+        storage[req.path].pathSuffix = path.basename(req.path);
+        storage[req.path].length = storage[req.path].data.length;
         return next();
       });
 
@@ -68,6 +94,29 @@ function handler (err, req, res, next) {
       });
 
       res.end(storage[req.path].data);
+      return next();
+      break;
+
+    case 'liststatus':
+      var files = [];
+      for (var key in storage) {
+        if (key !== req.path && path.dirname(key) === req.path) {
+          files.push(storage[key]);
+        }
+      }
+
+      var data = JSON.stringify({
+        FileStatuses: {
+          FileStatus: files
+        }
+      });
+
+      res.writeHead(200, {
+        'content-length': data.length,
+        'content-type': 'application/json'
+      });
+
+      res.end(data);
       return next();
       break;
 
@@ -176,9 +225,9 @@ describe('WebHDFS Proxy', function () {
       done();
     });
   });
-  /*
+
   it('should list directory status', function (done) {
-    hdfs.readdir(path, function (err, files) {
+    proxyClient.readdir(path, function (err, files) {
       demand(err).be.null();
       demand(files).have.length(2);
 
@@ -191,6 +240,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
+  /*
   it('should change file permissions', function (done) {
     hdfs.chmod(path, '0777', function (err) {
       demand(err).be.null();
