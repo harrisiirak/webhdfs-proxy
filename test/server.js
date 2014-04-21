@@ -3,9 +3,79 @@
 var WebHDFSProxy = require('../');
 var WebHDFS = require('webhdfs');
 
+var fs = require('fs');
 var must = require('must');
 var demand = must;
 var sinon = require('sinon');
+
+var storage = {};
+
+function handler (err, req, res, next) {
+  console.log(req.url + '\n');
+
+  // Forward error
+  if (err) {
+    return next(err);
+  }
+
+  switch (req.params.op) {
+    case 'mkdirs':
+      storage[req.path] = { type: 'directory' };
+      return next();
+      break;
+
+    case 'append':
+    case 'create':
+      var overwrite = true;
+      var exists = storage.hasOwnProperty(req.path);
+      var append = (req.params.op === 'append');
+
+      if (req.params.hasOwnProperty('overwrite') && !req.params.overwrite) {
+        overwrite = false;
+      }
+
+      if (!append && !overwrite && exists) {
+        return next(new Error('File already exists'));
+      }
+
+      if (!exists) {
+        storage[req.path] = { type: 'file', data: '' };
+      }
+
+      req.on('data', function onData (data) {
+        if (append || storage[req.path].data.length > 0) {
+          storage[req.path].data += data.toString();
+        } else {
+          storage[req.path].data = data.toString();
+        }
+      });
+
+      req.on('end', function onFinish () {
+        return next();
+      });
+
+      req.resume();
+      break;
+
+    case 'open':
+      if (!storage.hasOwnProperty(req.path)) {
+        return next(new Error('File doesn\'t exist'));
+      }
+
+      res.writeHead(200, {
+        'content-length': storage[req.path].data.length,
+        'content-type': 'application/octet-stream'
+      });
+
+      res.end(storage[req.path].data);
+      return next();
+      break;
+
+    default:
+      return next();
+      break;
+  }
+}
 
 describe('WebHDFS Proxy', function () {
   // Setup WebHDFS client
@@ -26,11 +96,6 @@ describe('WebHDFS Proxy', function () {
     }
   };
 
-  function handler (err, req, res, next) {
-    console.log(req.url + '\n');
-    return next(err);
-  }
-
   before(function () {
     proxyServer = WebHDFSProxy.createServer(opts, handler);
   });
@@ -49,9 +114,8 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  /*
   it('should append content to an existing file', function (done) {
-    hdfs.appendFile(path + '/file-1', 'more random data', function (err) {
+    proxyClient.appendFile(path + '/file-1', 'more random data', function (err) {
       demand(err).be.null();
       done();
     });
@@ -59,7 +123,7 @@ describe('WebHDFS Proxy', function () {
 
   it('should create and stream data to a file', function (done) {
     var localFileStream = fs.createReadStream(__filename);
-    var remoteFileStream = hdfs.createWriteStream(path + '/file-2');
+    var remoteFileStream = proxyClient.createWriteStream(path + '/file-2');
     var spy = sinon.spy();
 
     localFileStream.pipe(remoteFileStream);
@@ -73,7 +137,7 @@ describe('WebHDFS Proxy', function () {
 
   it('should append stream content to an existing file', function (done) {
     var localFileStream = fs.createReadStream(__filename);
-    var remoteFileStream = hdfs.createWriteStream(path + '/file-2', true);
+    var remoteFileStream = proxyClient.createWriteStream(path + '/file-2', true);
     var spy = sinon.spy();
 
     localFileStream.pipe(remoteFileStream);
@@ -87,7 +151,7 @@ describe('WebHDFS Proxy', function () {
   });
 
   it('should open and read a file stream', function (done) {
-    var remoteFileStream = hdfs.createReadStream(path + '/file-1');
+    var remoteFileStream = proxyClient.createReadStream(path + '/file-1');
     var spy = sinon.spy();
     var data = [];
 
@@ -104,14 +168,15 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
+
   it('should open and read a file', function (done) {
-    hdfs.readFile(path + '/file-1', function (err, data) {
+    proxyClient.readFile(path + '/file-1', function (err, data) {
       demand(err).be.null();
       demand(data.toString()).be.equal('random datamore random data');
       done();
     });
   });
-
+  /*
   it('should list directory status', function (done) {
     hdfs.readdir(path, function (err, files) {
       demand(err).be.null();

@@ -1,7 +1,7 @@
 {
   "properties": {
     "user.name": {
-      "description": "If a file already exists, should it be overwritten?",
+      "description": "The authenticated user.",
       "type": "string"
     },
 
