@@ -171,6 +171,19 @@ function handler (err, req, res, next) {
       return next();
       break;
 
+    case 'createsymlink':
+      if (!storage.hasOwnProperty(req.path)) {
+        return next(new Error('File doesn\'t exist'));
+      }
+
+      if (storage.hasOwnProperty(req.params.destination)) {
+        return next(new Error('Destination path exist'));
+      }
+
+      storage[req.params.destination] = storage[req.path];
+      return next();
+      break;
+
     default:
       return next();
       break;
@@ -362,11 +375,10 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  /*
   it('should create symbolic link', function (done) {
-    hdfs.symlink(path+ '/bigfile', path + '/biggerfile', function (err) {
+    proxyClient.symlink(path + '/bigfile', path + '/biggerfile', function (err) {
       // Pass if server doesn't support symlinks
-      if (err.message.indexOf('Symlinks not supported') !== -1) {
+      if (err && err.message.indexOf('Symlinks not supported') !== -1) {
         done();
       } else {
         demand(err).be.null();
@@ -375,6 +387,21 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
+  it('should return an error if creating symbolic link from unexisting path', function (done) {
+    proxyClient.symlink(path + '/bigfile2', path + '/biggerfile', function (err) {
+      demand(err).be.not.null();
+      done();
+    });
+  });
+
+  it('should return an error if creating symbolic link to existing path', function (done) {
+    proxyClient.symlink(path + '/bigfile', path + '/file-1', function (err) {
+      demand(err).be.not.null();
+      done();
+    });
+  });
+
+  /*
   it('should delete file', function (done) {
     hdfs.rmdir(path+ '/file-1', function (err) {
       demand(err).be.null();

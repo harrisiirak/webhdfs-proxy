@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "The authenticated user.",
+      "type": "string"
+    },
+
+    "destination": {
+      "description": "The destination path.",
+      "type": "string"
+    },
+
+    "createParent": {
+      "description": "If the parent directories do not exist, should they be created?",
+      "type": "boolean"
+    }
+  },
+
+  "required": [ "destination" ]
+}
