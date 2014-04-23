@@ -11,8 +11,9 @@ var sinon = require('sinon');
 
 var storage = {};
 
-function handler (err, req, res, next) {
-  console.log(req.url + '\n');
+function storageHandler (err, req, res, next) {
+  //console.log(req.url + '\n');
+  //console.log(arguments);
 
   // Forward error
   if (err) {
@@ -212,6 +213,32 @@ function handler (err, req, res, next) {
   }
 }
 
+var handler = sinon.spy(storageHandler);
+
+function matchLastCallParams (params, path) {
+  var args = handler.args[handler.args.length - 1];
+  var req = args[1];
+
+  //console.log(req.params);
+
+  // Sinon matchers doesn't work here, do it manually
+  for (var key in params) {
+    if (!req.params.hasOwnProperty(key)) {
+      return false;
+    }
+
+    if (req.params[key] !== params[key]) {
+      return false;
+    }
+  }
+
+  if (path !== undefined && path !== req.path) {
+    return false;
+  }
+
+  return true;
+}
+
 describe('WebHDFS Proxy', function () {
   // Setup WebHDFS client
   var proxyServer = null;
@@ -238,6 +265,8 @@ describe('WebHDFS Proxy', function () {
   it('should make a directory', function (done) {
     proxyClient.mkdir(path, function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'mkdirs', permissions: '0777' }, path)).be.truthy();
+
       return done();
     });
   });
@@ -245,6 +274,8 @@ describe('WebHDFS Proxy', function () {
   it('should create and write data to a file', function (done) {
     proxyClient.writeFile(path + '/file-1', 'random data', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'create' }, path + '/file-1')).be.truthy();
+
       done();
     });
   });
@@ -252,6 +283,8 @@ describe('WebHDFS Proxy', function () {
   it('should append content to an existing file', function (done) {
     proxyClient.appendFile(path + '/file-1', 'more random data', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'append' }, path + '/file-1')).be.truthy();
+
       done();
     });
   });
@@ -266,6 +299,8 @@ describe('WebHDFS Proxy', function () {
 
     remoteFileStream.on('finish', function () {
       demand(spy.called).be.falsy();
+      demand(matchLastCallParams({ op: 'create' }, path + '/file-2')).be.truthy();
+
       done();
     });
   });
@@ -280,6 +315,7 @@ describe('WebHDFS Proxy', function () {
 
     remoteFileStream.on('finish', function () {
       demand(spy.called).be.falsy();
+      demand(matchLastCallParams({ op: 'append' }, path + '/file-2')).be.truthy();
 
       done();
     });
@@ -298,6 +334,7 @@ describe('WebHDFS Proxy', function () {
     remoteFileStream.on('finish', function () {
       demand(spy.called).be.falsy();
       demand(Buffer.concat(data).toString()).be.equal('random datamore random data');
+      demand(matchLastCallParams({ op: 'open' }, path + '/file-1')).be.truthy();
 
       done();
     });
@@ -308,6 +345,8 @@ describe('WebHDFS Proxy', function () {
     proxyClient.readFile(path + '/file-1', function (err, data) {
       demand(err).be.null();
       demand(data.toString()).be.equal('random datamore random data');
+      demand(matchLastCallParams({ op: 'open' }, path + '/file-1')).be.truthy();
+
       done();
     });
   });
@@ -322,6 +361,9 @@ describe('WebHDFS Proxy', function () {
 
       demand(files[0].type).to.eql('FILE');
       demand(files[1].type).to.eql('FILE');
+
+      demand(matchLastCallParams({ op: 'liststatus' }, path)).be.truthy();
+
       done();
     });
   });
@@ -329,6 +371,8 @@ describe('WebHDFS Proxy', function () {
   it('should change file permissions', function (done) {
     proxyClient.chmod(path, '0777', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'setpermission', permission: '0777' }, path)).be.truthy();
+
       done();
     });
   });
@@ -336,6 +380,8 @@ describe('WebHDFS Proxy', function () {
   it('should change file owner', function (done) {
     proxyClient.chown(path, process.env.USER, 'supergroup', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'setowner', owner: process.env.USER, group: 'supergroup' }, path)).be.truthy();
+
       done();
     });
   });
@@ -343,6 +389,8 @@ describe('WebHDFS Proxy', function () {
   it('should rename file', function (done) {
     proxyClient.rename(path + '/file-2', path + '/bigfile', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'rename', destination: path + '/bigfile' }, path + '/file-2')).be.truthy();
+
       done();
     });
   });
@@ -350,6 +398,8 @@ describe('WebHDFS Proxy', function () {
   it('should return an error if destination file already exist', function (done) {
     proxyClient.rename(path + '/file-1', path + '/bigfile', function (err) {
       demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'rename', destination: path + '/bigfile' }, path + '/file-1')).be.truthy();
+
       done();
     });
   });
@@ -357,6 +407,8 @@ describe('WebHDFS Proxy', function () {
   it('should return an error if destination is missing', function (done) {
     proxyClient.rename(path + '/file-1', undefined, function (err) {
       demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'rename' }, path + '/file-1')).be.truthy();
+
       done();
     });
   });
@@ -364,6 +416,7 @@ describe('WebHDFS Proxy', function () {
   it('should check file existence', function (done) {
     proxyClient.exists(path + '/bigfile', function (exists) {
       demand(exists).be.true();
+      demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile')).be.truthy();
 
       done();
     });
@@ -372,6 +425,7 @@ describe('WebHDFS Proxy', function () {
   it('should return false if file doesn\'t exist', function (done) {
     proxyClient.exists(path + '/bigfile2', function (exists) {
       demand(exists).be.falsy();
+      demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile2')).be.truthy();
 
       done();
     });
@@ -385,6 +439,8 @@ describe('WebHDFS Proxy', function () {
       demand(stats.type).to.eql('FILE');
       demand(stats.owner).to.eql('webuser');
 
+      demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile')).be.truthy();
+
       done();
     });
   });
@@ -392,6 +448,7 @@ describe('WebHDFS Proxy', function () {
   it('should return an error if trying to stat inexisting file', function (done) {
     proxyClient.stat(path + '/bigfile2', function (err, stats) {
       demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile2')).be.truthy();
 
       done();
     });
@@ -404,6 +461,8 @@ describe('WebHDFS Proxy', function () {
         done();
       } else {
         demand(err).be.null();
+        demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/biggerfile' }, path + '/bigfile')).be.truthy();
+
         done();
       }
     });
@@ -412,6 +471,8 @@ describe('WebHDFS Proxy', function () {
   it('should return an error if creating symbolic link from inexisting path', function (done) {
     proxyClient.symlink(path + '/bigfile2', path + '/biggerfile', function (err) {
       demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/biggerfile' }, path + '/bigfile2')).be.truthy();
+
       done();
     });
   });
@@ -419,14 +480,17 @@ describe('WebHDFS Proxy', function () {
   it('should return an error if creating symbolic link to existing path', function (done) {
     proxyClient.symlink(path + '/bigfile', path + '/file-1', function (err) {
       demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/file-1' }, path + '/bigfile')).be.truthy();
+
       done();
     });
   });
 
-
   it('should delete file', function (done) {
     proxyClient.rmdir(path + '/file-1', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'delete' }, path + '/file-1')).be.truthy();
+
       done();
     });
   });
@@ -434,6 +498,8 @@ describe('WebHDFS Proxy', function () {
   it('should return an error if trying to delete file inexisting file', function (done) {
     proxyClient.rmdir(path + '/file-3', function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'delete' }, path + '/file-3')).be.truthy();
+
       done();
     });
   });
@@ -441,6 +507,8 @@ describe('WebHDFS Proxy', function () {
   it('should delete directory recursively', function (done) {
     proxyClient.rmdir(path, true, function (err) {
       demand(err).be.null();
+      demand(matchLastCallParams({ op: 'delete' }, path)).be.truthy();
+
       done();
     });
   });
