@@ -120,6 +120,20 @@ function handler (err, req, res, next) {
       return next();
       break;
 
+    case 'rename':
+      if (!storage.hasOwnProperty(req.path)) {
+        return next(new Error('File doesn\'t exist'));
+      }
+
+      if (storage.hasOwnProperty(req.params.destination)) {
+        return next(new Error('Destination path exist'));
+      }
+
+      storage[req.params.destination] = storage[req.path];
+      delete storage[req.path];
+      return next();
+      break;
+
     case 'setpermission':
       if (!storage.hasOwnProperty(req.path)) {
         return next(new Error('File doesn\'t exist'));
@@ -273,14 +287,28 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  /*
   it('should rename file', function (done) {
-    hdfs.rename(path+ '/file-2', path + '/bigfile', function (err) {
+    proxyClient.rename(path + '/file-2', path + '/bigfile', function (err) {
       demand(err).be.null();
       done();
     });
   });
 
+  it('should return an error if destination file already exist', function (done) {
+    proxyClient.rename(path + '/file-1', path + '/bigfile', function (err) {
+      demand(err).be.not.null();
+      done();
+    });
+  });
+
+  it('should return an error if destination is missing', function (done) {
+    proxyClient.rename(path + '/file-1', undefined, function (err) {
+      demand(err).be.not.null();
+      done();
+    });
+  });
+
+  /*
   it('should check file existence', function (done) {
     hdfs.exists(path + '/bigfile', function (exists) {
       demand(exists).be.true();

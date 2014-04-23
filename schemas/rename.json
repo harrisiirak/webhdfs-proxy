@@ -1,0 +1,15 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "The authenticated user.",
+      "type": "string"
+    },
+
+    "destination": {
+      "description": "The destination path.",
+      "type": "string"
+    }
+  },
+
+  "required": [ "destination" ]
+}
