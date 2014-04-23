@@ -1,0 +1,13 @@
+{
+  "properties": {
+    "user.name": {
+      "description": "The authenticated user.",
+      "type": "string"
+    },
+
+    "recursive": {
+      "description": "Should the operation act on the content in the subdirectories?",
+      "type": "boolean"
+    }
+  }
+}

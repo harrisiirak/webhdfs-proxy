@@ -184,6 +184,28 @@ function handler (err, req, res, next) {
       return next();
       break;
 
+    case 'delete':
+      if (req.params.hasOwnProperty('recursive') && req.params.recursive) {
+        var deleted = false;
+
+        for (var key in storage) {
+          if (path.dirname(key) === req.path) {
+            delete storage[key];
+            deleted = true;
+          }
+        }
+
+        if (!deleted && !storage.hasOwnProperty(req.path)) {
+          return next(new Error('File doesn\'t exist'));
+        }
+
+      } else {
+        delete storage[key];
+      }
+
+      return next();
+      break;
+
     default:
       return next();
       break;
@@ -367,7 +389,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if trying to stat unexisting file', function (done) {
+  it('should return an error if trying to stat inexisting file', function (done) {
     proxyClient.stat(path + '/bigfile2', function (err, stats) {
       demand(err).be.not.null();
 
@@ -387,7 +409,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if creating symbolic link from unexisting path', function (done) {
+  it('should return an error if creating symbolic link from inexisting path', function (done) {
     proxyClient.symlink(path + '/bigfile2', path + '/biggerfile', function (err) {
       demand(err).be.not.null();
       done();
@@ -401,19 +423,25 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  /*
+
   it('should delete file', function (done) {
-    hdfs.rmdir(path+ '/file-1', function (err) {
+    proxyClient.rmdir(path + '/file-1', function (err) {
+      demand(err).be.null();
+      done();
+    });
+  });
+
+  it('should return an error if trying to delete file inexisting file', function (done) {
+    proxyClient.rmdir(path + '/file-3', function (err) {
       demand(err).be.null();
       done();
     });
   });
 
   it('should delete directory recursively', function (done) {
-    hdfs.rmdir(path, true, function (err) {
+    proxyClient.rmdir(path, true, function (err) {
       demand(err).be.null();
       done();
     });
   });
-  */
 });
