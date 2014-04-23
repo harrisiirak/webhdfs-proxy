@@ -18,7 +18,7 @@
     "mocha": "^1.18.2",
     "must": "^0.11.0",
     "sinon": "^1.9.1",
-    "webhdfs": "^0.1.10"
+    "webhdfs": "^0.1.11"
   },
   "dependencies": {
     "async": "^0.7.0",

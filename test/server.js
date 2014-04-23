@@ -120,6 +120,24 @@ function handler (err, req, res, next) {
       return next();
       break;
 
+    case 'getfilestatus':
+      if (!storage.hasOwnProperty(req.path)) {
+        return next(new Error('File doesn\'t exist'));
+      }
+
+      var data = JSON.stringify({
+        FileStatus: storage[req.path]
+      });
+
+      res.writeHead(200, {
+        'content-length': data.length,
+        'content-type': 'application/json'
+      });
+
+      res.end(data);
+      return next();
+      break;
+
     case 'rename':
       if (!storage.hasOwnProperty(req.path)) {
         return next(new Error('File doesn\'t exist'));
@@ -308,27 +326,43 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  /*
   it('should check file existence', function (done) {
-    hdfs.exists(path + '/bigfile', function (exists) {
+    proxyClient.exists(path + '/bigfile', function (exists) {
       demand(exists).be.true();
 
       done();
     });
   });
 
-  it('should stat file', function (done) {
-    hdfs.stat(path + '/bigfile', function (err, stats) {
-      demand(err).be.null();
-      demand(stats).be.object();
-
-      demand(stats.type).to.eql('FILE');
-      demand(stats.owner).to.eql(process.env.USER);
+  it('should return false if file doesn\'t exist', function (done) {
+    proxyClient.exists(path + '/bigfile2', function (exists) {
+      demand(exists).be.falsy();
 
       done();
     });
   });
 
+  it('should stat file', function (done) {
+    proxyClient.stat(path + '/bigfile', function (err, stats) {
+      demand(err).be.null();
+      demand(stats).be.object();
+
+      demand(stats.type).to.eql('FILE');
+      demand(stats.owner).to.eql('webuser');
+
+      done();
+    });
+  });
+
+  it('should return an error if trying to stat unexisting file', function (done) {
+    proxyClient.stat(path + '/bigfile2', function (err, stats) {
+      demand(err).be.not.null();
+
+      done();
+    });
+  });
+
+  /*
   it('should create symbolic link', function (done) {
     hdfs.symlink(path+ '/bigfile', path + '/biggerfile', function (err) {
       // Pass if server doesn't support symlinks
