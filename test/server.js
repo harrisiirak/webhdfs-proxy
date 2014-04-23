@@ -22,6 +22,10 @@ function storageHandler (err, req, res, next) {
 
   switch (req.params.op) {
     case 'mkdirs':
+      if (storage.hasOwnProperty(req.path)) {
+        return next(new Error('File already exists'));
+      }
+
       storage[req.path] = {
         accessTime: (new Date()).getTime(),
         blockSize: 0,
@@ -271,6 +275,15 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
+  it('should return an error if directory already exists', function (done) {
+    proxyClient.mkdir(path, function (err) {
+      demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'mkdirs', permissions: '0777' }, path)).be.truthy();
+
+      return done();
+    });
+  });
+
   it('should create and write data to a file', function (done) {
     proxyClient.writeFile(path + '/file-1', 'random data', function (err) {
       demand(err).be.null();
@@ -340,7 +353,6 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-
   it('should open and read a file', function (done) {
     proxyClient.readFile(path + '/file-1', function (err, data) {
       demand(err).be.null();
@@ -368,6 +380,15 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
+  it('should list directory status', function (done) {
+    proxyClient.readdir(path + '/dir1', function (err, files) {
+      demand(files).length(0);
+      demand(matchLastCallParams({ op: 'liststatus' }, path + '/dir1')).be.truthy();
+
+      done();
+    });
+  });
+
   it('should change file permissions', function (done) {
     proxyClient.chmod(path, '0777', function (err) {
       demand(err).be.null();
@@ -377,10 +398,28 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
+  it('should return an error when trying to change inexisting file permission', function (done) {
+    proxyClient.chmod(path + '/file-4', '0777', function (err) {
+      demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'setpermission', permission: '0777' }, path + '/file-4')).be.truthy();
+
+      done();
+    });
+  });
+
   it('should change file owner', function (done) {
     proxyClient.chown(path, process.env.USER, 'supergroup', function (err) {
       demand(err).be.null();
       demand(matchLastCallParams({ op: 'setowner', owner: process.env.USER, group: 'supergroup' }, path)).be.truthy();
+
+      done();
+    });
+  });
+
+  it('should return an error when trying to change inexisting file owner', function (done) {
+    proxyClient.chmod(path + '/file-4', '0777', function (err) {
+      demand(err).be.not.null();
+      demand(matchLastCallParams({ op: 'setpermission', permission: '0777' }, path + '/file-4')).be.truthy();
 
       done();
     });
@@ -404,7 +443,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if destination is missing', function (done) {
+  it('should return an error if destination file path is missing', function (done) {
     proxyClient.rename(path + '/file-1', undefined, function (err) {
       demand(err).be.not.null();
       demand(matchLastCallParams({ op: 'rename' }, path + '/file-1')).be.truthy();
@@ -445,7 +484,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if trying to stat inexisting file', function (done) {
+  it('should return an error when trying to stat inexisting file', function (done) {
     proxyClient.stat(path + '/bigfile2', function (err, stats) {
       demand(err).be.not.null();
       demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile2')).be.truthy();
@@ -468,7 +507,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if creating symbolic link from inexisting path', function (done) {
+  it('should return an error when creating symbolic link from inexisting path', function (done) {
     proxyClient.symlink(path + '/bigfile2', path + '/biggerfile', function (err) {
       demand(err).be.not.null();
       demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/biggerfile' }, path + '/bigfile2')).be.truthy();
@@ -477,7 +516,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if creating symbolic link to existing path', function (done) {
+  it('should return an error when creating symbolic link to existing path', function (done) {
     proxyClient.symlink(path + '/bigfile', path + '/file-1', function (err) {
       demand(err).be.not.null();
       demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/file-1' }, path + '/bigfile')).be.truthy();
@@ -495,7 +534,7 @@ describe('WebHDFS Proxy', function () {
     });
   });
 
-  it('should return an error if trying to delete file inexisting file', function (done) {
+  it('should return an error when trying to delete file inexisting file', function (done) {
     proxyClient.rmdir(path + '/file-3', function (err) {
       demand(err).be.null();
       demand(matchLastCallParams({ op: 'delete' }, path + '/file-3')).be.truthy();
