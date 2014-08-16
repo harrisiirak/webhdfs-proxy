@@ -15,5 +15,11 @@ module.exports = {
    */
   createServer: function createServer (opts, middleware, done) {
     return new WebHDFSProxyServer(opts, middleware, done);
-  }
+  },
+
+  /**
+   * Expose error class
+   */
+  WebHDFSAPIError: require('./lib/error').APIError,
+  WebHDFSAPIErrors: require('./lib/error').ERRORS
 };
