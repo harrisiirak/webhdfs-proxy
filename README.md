@@ -1,6 +1,9 @@
 webhdfs-proxy
 =============
 
+[![Build Status](https://travis-ci.org/harrisiirak/webhdfs-proxy.png?branch=master)](https://travis-ci.org/harrisiirak/webhdfs-proxy)
+[![NPM version](https://badge.fury.io/js/webhdfs-proxy.png)](http://badge.fury.io/js/webhdfs-proxy)
+
 **webhdfs-proxy** is a naive proxy layer for Hadoop WebHDFS REST API, which can be used to mock WebHDFS API requests in the tests or help to 
 replace/migrate existing HDFS data storage (migration to S3, GridFS or custom storage etc.).
 
@@ -115,7 +118,7 @@ npm test
 
 # Middlewares
 
-Coming soon...
+*  
 
 # Licence
 
