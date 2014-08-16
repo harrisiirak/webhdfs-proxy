@@ -28,7 +28,6 @@ Install module:
 
 ```bash
 npm install webhdfs-proxy --save
-
 ```
 
 Basic middleware skeleton:
@@ -112,7 +111,6 @@ Running tests:
 
 ```bash
 npm test
-
 ```
 
 # Middlewares
