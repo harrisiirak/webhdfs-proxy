@@ -6,246 +6,48 @@ var WebHDFSProxy = require('../');
 var WebHDFS = require('webhdfs');
 
 var fs = require('fs');
-var path = require('path');
-var must = require('must');
-var demand = must;
+var p = require('path');
+var demand = require('must');
 var sinon = require('sinon');
 
 var storage = {};
 
-function storageHandler (err, req, res, next) {
+/**
+ *
+ * @param err
+ * @param path
+ * @param operation
+ * @param params
+ * @param req
+ * @param res
+ * @param next
+ * @returns {*}
+ */
+function testHandler (err, path, operation, params, req, res, next) {
   // Forward error
   if (err) {
     return next(err);
   }
 
-  switch (req.params.op) {
+  switch (operation) {
     case 'mkdirs':
-      if (storage.hasOwnProperty(req.path)) {
-        return next(new Error('File already exists'));
+      if (!parseInt(params.permissions)) {
+        return next(new Error('Invalid permission value'));
       }
-
-      storage[req.path] = {
-        accessTime: (new Date()).getTime(),
-        blockSize: 0,
-        group: 'supergroup',
-        length: 24930,
-        modificationTime: (new Date()).getTime(),
-        owner: 'webuser',
-        pathSuffix: '',
-        permission: '644',
-        replication: 1,
-        type: 'DIRECTORY'
-      };
-      return next();
-      break;
-
-    case 'append':
-    case 'create':
-      var overwrite = true;
-      var exists = storage.hasOwnProperty(req.path);
-      var append = (req.params.op === 'append');
-
-      if (req.params.hasOwnProperty('overwrite') && !req.params.overwrite) {
-        overwrite = false;
-      }
-
-      if (!append && !overwrite && exists) {
-        return next(new Error('File already exists'));
-      }
-
-      if (!exists) {
-        storage[req.path] = {
-          accessTime: (new Date()).getTime(),
-          blockSize: 0,
-          group: 'supergroup',
-          length: 0,
-          modificationTime: (new Date()).getTime(),
-          owner: 'webuser',
-          pathSuffix: '',
-          permission: '644',
-          replication: 1,
-          type: 'FILE',
-          data: ''
-        };
-      }
-
-      req.on('data', function onData (data) {
-        if (append || storage[req.path].data.length > 0) {
-          storage[req.path].data += data.toString();
-        } else {
-          storage[req.path].data = data.toString();
-        }
-      });
-
-      req.on('end', function onFinish () {
-        storage[req.path].pathSuffix = path.basename(req.path);
-        storage[req.path].length = storage[req.path].data.length;
-        return next();
-      });
-
-      req.resume();
-      break;
-
-    case 'open':
-      if (!storage.hasOwnProperty(req.path)) {
-        return next(new Error('File doesn\'t exist'));
-      }
-
-      res.writeHead(200, {
-        'content-length': storage[req.path].data.length,
-        'content-type': 'application/octet-stream'
-      });
-
-      res.end(storage[req.path].data);
-      return next();
-      break;
-
-    case 'liststatus':
-      var files = [];
-      for (var key in storage) {
-        if (key !== req.path && path.dirname(key) === req.path) {
-          files.push(storage[key]);
-        }
-      }
-
-      var data = JSON.stringify({
-        FileStatuses: {
-          FileStatus: files
-        }
-      });
-
-      res.writeHead(200, {
-        'content-length': data.length,
-        'content-type': 'application/json'
-      });
-
-      res.end(data);
-      return next();
-      break;
-
-    case 'getfilestatus':
-      if (!storage.hasOwnProperty(req.path)) {
-        return next(new Error('File doesn\'t exist'));
-      }
-
-      var data = JSON.stringify({
-        FileStatus: storage[req.path]
-      });
-
-      res.writeHead(200, {
-        'content-length': data.length,
-        'content-type': 'application/json'
-      });
-
-      res.end(data);
-      return next();
-      break;
-
-    case 'rename':
-      if (!storage.hasOwnProperty(req.path)) {
-        return next(new Error('File doesn\'t exist'));
-      }
-
-      if (storage.hasOwnProperty(req.params.destination)) {
-        return next(new Error('Destination path exist'));
-      }
-
-      storage[req.params.destination] = storage[req.path];
-      delete storage[req.path];
-      return next();
-      break;
-
-    case 'setpermission':
-      if (!storage.hasOwnProperty(req.path)) {
-        return next(new Error('File doesn\'t exist'));
-      }
-
-      storage[req.path].permission = req.params.permission;
-      return next();
-      break;
-
-    case 'setowner':
-      if (!storage.hasOwnProperty(req.path)) {
-        return next(new Error('File doesn\'t exist'));
-      }
-
-      storage[req.path].owner = req.params.owner;
-      storage[req.path].group = req.params.group;
-      return next();
-      break;
-
-    case 'createsymlink':
-      if (!storage.hasOwnProperty(req.path)) {
-        return next(new Error('File doesn\'t exist'));
-      }
-
-      if (storage.hasOwnProperty(req.params.destination)) {
-        return next(new Error('Destination path exist'));
-      }
-
-      storage[req.params.destination] = storage[req.path];
-      return next();
-      break;
-
-    case 'delete':
-      if (req.params.hasOwnProperty('recursive') && req.params.recursive) {
-        var deleted = false;
-
-        for (var key in storage) {
-          if (path.dirname(key) === req.path) {
-            delete storage[key];
-            deleted = true;
-          }
-        }
-
-        if (!deleted && !storage.hasOwnProperty(req.path)) {
-          return next(new Error('File doesn\'t exist'));
-        }
-
-      } else {
-        delete storage[key];
-      }
-
-      return next();
-      break;
-
-    default:
-      return next();
       break;
   }
+
+  return next();
 }
 
-var handler = sinon.spy(storageHandler);
-
-function matchLastCallParams (params, path) {
-  var args = handler.args[handler.args.length - 1];
-  var req = args[1];
-
-  // Sinon matchers doesn't work here, do it manually
-  for (var key in params) {
-    if (!req.params.hasOwnProperty(key)) {
-      return false;
-    }
-
-    if (req.params[key] !== params[key]) {
-      return false;
-    }
-  }
-
-  if (path !== undefined && path !== req.path) {
-    return false;
-  }
-
-  return true;
-}
+var handler = sinon.spy(testHandler);
 
 describe('WebHDFS Proxy', function () {
   // Setup WebHDFS client
   var proxyServer = null;
 
   // Set options
-  var path = '/files/' + Math.random();
+  var path = null;
   var opts = {
     path: '/webhdfs/v1',
     http: {
@@ -263,292 +65,63 @@ describe('WebHDFS Proxy', function () {
   function createTests (title, client) {
     describe(title, function () {
       before(function () {
-        storage = {};
+        path = '/files/' + Math.random();
       });
 
-      it('should make a directory', function (done) {
+      it('should succeed if supported operation was executed', function (done) {
         client.mkdir(path, function (err) {
           demand(err).be.null();
-          demand(matchLastCallParams({ op: 'mkdirs', permissions: '0777' }, path)).be.truthy();
+          demand(handler.calledWithMatch(null, path, 'mkdirs', { op: 'mkdirs', 'user.name': 'webuser', permissions: '0777' })).be.truthy();
 
           return done();
         });
       });
 
-      it('should return an error if directory already exists', function (done) {
-        client.mkdir(path, function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'mkdirs', permissions: '0777' }, path)).be.truthy();
+      it('should succeed if supported operation returned an error', function (done) {
+        client.mkdir(path, 'invalid', function (err) {
+          demand(err).not.be.null();
 
           return done();
         });
       });
 
-      it('should create and write data to a file', function (done) {
-        client.writeFile(path + '/file-1', 'random data', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'create' }, path + '/file-1')).be.truthy();
+      it('should succeed if unsupported operation request returned an error', function (done) {
+        var url = client._getOperationEndpoint('randomoperation', path, {});
+        client._sendRequest('PUT', url, function onResponse (err) {
+          demand(err).not.be.null();
+          demand(err.message).eql('op=randomoperation is not supported');
 
-          done();
+          return done();
         });
       });
 
-      it('should append content to an existing file', function (done) {
-        client.appendFile(path + '/file-1', 'more random data', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'append' }, path + '/file-1')).be.truthy();
+      it('should succeed if operation request with invalid method returned an error', function (done) {
+        var url = client._getOperationEndpoint('mkdirs', path, {});
+        client._sendRequest('GET', url, function onResponse (err) {
+          demand(err).not.be.null();
+          demand(err.message).eql('Invalid HTTP method GET, expected PUT');
 
-          done();
+          return done();
         });
       });
 
-      it('should create and stream data to a file', function (done) {
-        var localFileStream = fs.createReadStream(__filename);
-        var remoteFileStream = client.createWriteStream(path + '/file-2');
-        var spy = sinon.spy();
+      it('should succeed if operation request body validation fails', function (done) {
+        var url = client._getOperationEndpoint('rename', path, {});
+        client._sendRequest('PUT', url, function onResponse (err) {
+          demand(err).not.be.null();
+          demand(err.message).eql('Missing required property: destination');
 
-        localFileStream.pipe(remoteFileStream);
-        remoteFileStream.on('error', spy);
-
-        remoteFileStream.on('finish', function () {
-          demand(spy.called).be.falsy();
-          demand(matchLastCallParams({ op: 'create' }, path + '/file-2')).be.truthy();
-
-          done();
+          return done();
         });
       });
 
-      it('should append stream content to an existing file', function (done) {
-        var localFileStream = fs.createReadStream(__filename);
-        var remoteFileStream = client.createWriteStream(path + '/file-2', true);
-        var spy = sinon.spy();
+      it('should succeed if operation request returns redirect', function (done) {
+        var url = client._getOperationEndpoint('create', path, { });
+        client._sendRequest('PUT', url, function onResponse (err, res) {
+          demand(res.headers).own('location');
+          demand(res.statusCode).eql(307);
 
-        localFileStream.pipe(remoteFileStream);
-        remoteFileStream.on('error', spy);
-
-        remoteFileStream.on('finish', function () {
-          demand(spy.called).be.falsy();
-          demand(matchLastCallParams({ op: 'append' }, path + '/file-2')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should open and read a file stream', function (done) {
-        var remoteFileStream = client.createReadStream(path + '/file-1');
-        var spy = sinon.spy();
-        var data = [];
-
-        remoteFileStream.on('error', spy);
-        remoteFileStream.on('data', function onData (chunk) {
-          data.push(chunk);
-        });
-
-        remoteFileStream.on('finish', function () {
-          demand(spy.called).be.falsy();
-          demand(Buffer.concat(data).toString()).be.equal('random datamore random data');
-          demand(matchLastCallParams({ op: 'open' }, path + '/file-1')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should open and read a file', function (done) {
-        client.readFile(path + '/file-1', function (err, data) {
-          demand(err).be.null();
-          demand(data.toString()).be.equal('random datamore random data');
-          demand(matchLastCallParams({ op: 'open' }, path + '/file-1')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should list directory status', function (done) {
-        client.readdir(path, function (err, files) {
-          demand(err).be.null();
-          demand(files).have.length(2);
-
-          demand(files[0].pathSuffix).to.eql('file-1');
-          demand(files[1].pathSuffix).to.eql('file-2');
-
-          demand(files[0].type).to.eql('FILE');
-          demand(files[1].type).to.eql('FILE');
-
-          demand(matchLastCallParams({ op: 'liststatus' }, path)).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should list directory status', function (done) {
-        client.readdir(path + '/dir1', function (err, files) {
-          demand(files).length(0);
-          demand(matchLastCallParams({ op: 'liststatus' }, path + '/dir1')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should change file permissions', function (done) {
-        client.chmod(path, '0777', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'setpermission', permission: '0777' }, path)).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error when trying to change inexisting file permission', function (done) {
-        client.chmod(path + '/file-4', '0777', function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'setpermission', permission: '0777' }, path + '/file-4')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should change file owner', function (done) {
-        client.chown(path, process.env.USER, 'supergroup', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'setowner', owner: process.env.USER, group: 'supergroup' }, path)).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error when trying to change inexisting file owner', function (done) {
-        client.chmod(path + '/file-4', '0777', function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'setpermission', permission: '0777' }, path + '/file-4')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should rename file', function (done) {
-        client.rename(path + '/file-2', path + '/bigfile', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'rename', destination: path + '/bigfile' }, path + '/file-2')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error if destination file already exist', function (done) {
-        client.rename(path + '/file-1', path + '/bigfile', function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'rename', destination: path + '/bigfile' }, path + '/file-1')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error if destination file path is missing', function (done) {
-        client.rename(path + '/file-1', undefined, function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'rename' }, path + '/file-1')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should check file existence', function (done) {
-        client.exists(path + '/bigfile', function (exists) {
-          demand(exists).be.true();
-          demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return false if file doesn\'t exist', function (done) {
-        client.exists(path + '/bigfile2', function (exists) {
-          demand(exists).be.falsy();
-          demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile2')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should stat file', function (done) {
-        client.stat(path + '/bigfile', function (err, stats) {
-          demand(err).be.null();
-          demand(stats).be.object();
-
-          demand(stats.type).to.eql('FILE');
-          demand(stats.owner).to.eql('webuser');
-
-          demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error when trying to stat inexisting file', function (done) {
-        client.stat(path + '/bigfile2', function (err, stats) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'getfilestatus' }, path + '/bigfile2')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should create symbolic link', function (done) {
-        client.symlink(path + '/bigfile', path + '/biggerfile', function (err) {
-          // Pass if server doesn't support symlinks
-          if (err && err.message.indexOf('Symlinks not supported') !== -1) {
-            done();
-          } else {
-            demand(err).be.null();
-            demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/biggerfile' }, path + '/bigfile')).be.truthy();
-
-            done();
-          }
-        });
-      });
-
-      it('should return an error when creating symbolic link from inexisting path', function (done) {
-        client.symlink(path + '/bigfile2', path + '/biggerfile', function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/biggerfile' }, path + '/bigfile2')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error when creating symbolic link to existing path', function (done) {
-        client.symlink(path + '/bigfile', path + '/file-1', function (err) {
-          demand(err).be.not.null();
-          demand(matchLastCallParams({ op: 'createsymlink', destination: path + '/file-1' }, path + '/bigfile')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should delete file', function (done) {
-        client.rmdir(path + '/file-1', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'delete' }, path + '/file-1')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should return an error when trying to delete file inexisting file', function (done) {
-        client.rmdir(path + '/file-3', function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'delete' }, path + '/file-3')).be.truthy();
-
-          done();
-        });
-      });
-
-      it('should delete directory recursively', function (done) {
-        client.rmdir(path, true, function (err) {
-          demand(err).be.null();
-          demand(matchLastCallParams({ op: 'delete' }, path)).be.truthy();
-
-          done();
+          return done();
         });
       });
     });
