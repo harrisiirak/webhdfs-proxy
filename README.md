@@ -118,7 +118,7 @@ npm test
 
 # Middlewares
 
-*  
+*  [webhdfs-proxy-memory](https://github.com/harrisiirak/webhdfs-proxy-memory) - Memory storage middleware
 
 # Licence
 
