@@ -13,6 +13,10 @@
     "big data"
   ],
   "author": "Harri Siirak <harri.siirak@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harrisiirak/webhdfs-proxy.git"
+  },
   "license": "MIT",
   "devDependencies": {
     "mocha": "^1.21.4",
