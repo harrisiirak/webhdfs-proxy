@@ -50,6 +50,7 @@ describe('WebHDFS Proxy', function () {
   var path = null;
   var opts = {
     path: '/webhdfs/v1',
+    user: 'webuser',
     http: {
       port: 45000
     },
@@ -73,6 +74,15 @@ describe('WebHDFS Proxy', function () {
           demand(err).be.null();
           demand(handler.calledWithMatch(null, path, 'mkdirs', { op: 'mkdirs', 'user.name': 'webuser', permissions: '0777' })).be.truthy();
 
+          return done();
+        });
+      });
+
+      it('should succeed if supported write operation with wrong user returned an error', function (done) {
+        client._opts.user = 'wronguser';
+        client.mkdir(path, function (err) {
+          demand(err).not.be.null();
+          client._opts.user = 'webuser';
           return done();
         });
       });
