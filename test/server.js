@@ -63,6 +63,10 @@ describe('WebHDFS Proxy', function () {
     proxyServer = WebHDFSProxy.createServer(opts, handler, done);
   });
 
+  after(function (done) {
+    proxyServer.close(done);
+  });
+
   function createTests (title, client) {
     describe(title, function () {
       before(function () {
